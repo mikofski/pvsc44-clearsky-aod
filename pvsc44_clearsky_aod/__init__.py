@@ -128,7 +128,7 @@ def get_surfrad_site_year(noaa_ftp_conn, surfrad_site, year, h5f_path):
     for f in files:
         buf = StringIO()  # buffer is a Python builtin, **SURPRISE!**
         success, retries = False, 0
-        while not success and retries < 3:
+        while not success and retries < RETRIES:
             buf.seek(0)
             try:
                 noaa_ftp_conn.retrbinary('RETR %s' % f, buf.write)
@@ -136,7 +136,7 @@ def get_surfrad_site_year(noaa_ftp_conn, surfrad_site, year, h5f_path):
                 LOGGER.exception(ftp_err)
                 retries += 1
                 LOGGER.debug('retry #%d to retrieve %s', retries, f)
-                time.sleep(5)
+                time.sleep(SLEEP)
             else:
                 success = True
         if not success:
