@@ -26,12 +26,13 @@ sns.set_context('notebook', rc={'figure.figsize': (16, 8)})
 # logging
 LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel(logging.DEBUG)
+LOGGER.propagate = False
 # create console handler and set level to debug
 CH = logging.StreamHandler()
 CH.setLevel(logging.DEBUG)
 # create formatter
-LOGFMT = ('[%(levelname)s:%(name)s:%(lineno)d] <%(thread)d> (%(asctime)s)\n'
-          '%(message)s')
+LOGFMT = ('[%(levelname)s:%(name)s:%(lineno)d] thread-%(thread)d (%(asctime)s)'
+          '\n%(message)s')
 FORMATTER = logging.Formatter(LOGFMT, '%m/%d/%Y %I:%M:%S %p')
 # add formatter to ch
 CH.setFormatter(FORMATTER)
@@ -112,20 +113,13 @@ def get_noaa_ftp_conn(noaa_ftp=NOAA_FTP, surfrad_path=SURFRAD_PATH, retry=0):
     return noaa_ftp_conn
 
 
-def get_surfrad_site_year(surfrad_site, year, h5f_path, queue=QUEUE):
+def get_surfrad_site_year(noaa_ftp_conn, surfrad_site, year, h5f_path):
     """
     This is the target function of a thread. It creates an FTP connection to
     NOAA, navigates to the surfrad data and retrieves all of the years in the
     desired range in a buffer.
     """
     meta = []
-    try:
-        noaa_ftp_conn = get_noaa_ftp_conn()
-    except Exception as ftp_err:
-        LOGGER.exception(ftp_err)
-        meta.append({'year': year, 'site': surfrad_site, 'ftp_error': ftp_err})
-        queue.put(['%s/%s' % (surfrad_site, year), meta])
-        return
     noaa_ftp_conn.cwd(surfrad_site)  # open site folder
     noaa_ftp_conn.cwd(str(year))  # open year folder
     files = []  # get list of available daily datafiles
@@ -180,22 +174,25 @@ def get_surfrad_site_year(surfrad_site, year, h5f_path, queue=QUEUE):
         LOGGER.exception(h5_err)
         meta.append({'year': year, 'site': surfrad_site, 'h5_error': h5_err})
     # put the meta into the queue
-    queue.put(['%s/%s' % (surfrad_site, year), meta])
+    QUEUE.put(['%s/%s' % (surfrad_site, year), meta])
     noaa_ftp_conn.cwd('..')  # navigate back to years
-    noaa_ftp_conn.close()
+    noaa_ftp_conn.cwd('..')  # navigate back to sites
 
 
 def get_surfrad_data(surfrad_sites=SURFRAD_SITES, savedatapath=SAVEDATAPATH,
                      ecmwf_macc_range=(ECMWF_MACC_START, ECMWF_MACC_STOP)):
-    # loop over sites
+    connections = [get_noaa_ftp_conn() for _ in xrange(MAX_CONN)]            
+    ctr = 0
     threads = []
-    noaa_ftp_conn = get_noaa_ftp_conn()
+    # loop over sites
     for surfrad_site, station_id in surfrad_sites.iteritems():
+        LOGGER.debug('using connection: %d', ctr)
+        noaa_ftp_conn = connections[ctr]
         noaa_ftp_conn.cwd(surfrad_site)  # open site folder
         years = []  # get list of available years
         noaa_ftp_conn.retrlines('NLST', lambda _: years.append(_))
+        noaa_ftp_conn.cwd('..')  # navigate back to sites
         # loop over yearly site data
-        connections = []
         for y in years:
             # skip any non-year items in the folder
             try:
@@ -208,23 +205,29 @@ def get_surfrad_data(surfrad_sites=SURFRAD_SITES, savedatapath=SAVEDATAPATH,
                 continue
             # limit to data overlapping ECMWF atmospheric data (for now)
             if ecmwf_macc_range[0] <= year <= ecmwf_macc_range[1]:
-                t = threading.Thread(target=get_surfrad_site_year,
-                           args=(surfrad_site, year, h5f_path))
+                LOGGER.debug('using connection: %d', ctr)
+                conn = connections[ctr]
+                t = threading.Thread(
+                    target=get_surfrad_site_year,
+                    name=h5f_name[:-3],
+                    args=(conn, surfrad_site, year, h5f_path))
                 t.start()
-                connections.insert(0, t)
-            if len(connections) > MAX_CONN:
-                LOGGER.debug('number of active threads exceeds max connections.')
-                conn = connections.pop()
-                threads.append(conn)
-                conn.join()
-        noaa_ftp_conn.cwd('..')  # navigate back to sites
-    noaa_ftp_conn.close()
-    return threads
+                threads.insert(0, t)
+                ctr += 1
+            if len(threads) == MAX_CONN:
+                LOGGER.debug('max connections: %d exceeded.', MAX_CONN)
+                t = threads.pop()
+                LOGGER.debug('join "%s".', t.name)
+                t.join()
+                ctr = ctr % 3
+                import pdb;pdb.set_trace()
+    for conn in connections:
+        conn.close()
 
 
-def get_surfrad_station_meta(queue=QUEUE):
+def get_surfrad_station_meta():
     stations = {}
-    while queue.empty():
+    while QUEUE.empty():
         meta = QUEUE.get()
         stations[meta[0]] = meta[1]
     return stations
