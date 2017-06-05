@@ -30,8 +30,8 @@ LOGGER.setLevel(logging.DEBUG)
 CH = logging.StreamHandler()
 CH.setLevel(logging.DEBUG)
 # create formatter
-LOGFMT = ('[%(levelname)s:%(name)s:%(lineno)d] %(asctime) (%(thread)d)\n'
-          '>%(message)s')
+LOGFMT = ('[%(levelname)s:%(name)s:%(lineno)d] <%(thread)d> (%(asctime)s)\n'
+          '%(message)s')
 FORMATTER = logging.Formatter(LOGFMT, '%m/%d/%Y %I:%M:%S %p')
 # add formatter to ch
 CH.setFormatter(FORMATTER)
