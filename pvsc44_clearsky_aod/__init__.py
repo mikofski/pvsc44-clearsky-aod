@@ -126,14 +126,22 @@ def get_surfrad_site_year(noaa_ftp_conn, surfrad_site, year, h5f_path):
     noaa_ftp_conn.retrlines('NLST', lambda _: files.append(_))
     data = None
     for f in files:
-        buf = StringIO()  # buffer is a Python builtin, **SURPRISE!**
-        try:
-            noaa_ftp_conn.retrbinary('RETR %s' % f, buf.write)
-        except Exception as ftp_err:
-            LOGGER.exception(ftp_err)
-            meta.append({'year': year, 'file': f, 'ftp_error': ftp_err})
-            buf.close()
-            continue
+        success, retries = True, 0
+        while retries == 0 or not success:
+            buf = StringIO()  # buffer is a Python builtin, **SURPRISE!**
+            try:
+                noaa_ftp_conn.retrbinary('RETR %s' % f, buf.write)
+            except Exception as ftp_err:
+                LOGGER.exception(ftp_err)
+                buf.close()
+                if retries < 3:
+                    LOGGER.debug('retry #%d to retrieve %s', retries, f)
+                    time.sleep(5)
+                    success = False
+                    retries += 1
+                else:
+                    meta.append({'year': year, 'file': f, 'ftp_error': ftp_err})
+                    continue
         buf.seek(0)
         station_name = buf.readline().strip()
         latitude, longitude, elevation, _ = buf.readline().split(None, 3)
