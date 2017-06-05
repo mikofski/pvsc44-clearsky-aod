@@ -24,10 +24,19 @@ from tzwhere import tzwhere
 sns.set_context('notebook', rc={'figure.figsize': (16, 8)})
 
 # logging
-LOGFMT = '[%(levelname)s:%(name)s:%(lineno)d] %(asctime) (%(thread)d)\n>%(message)s'
-logging.basicConfig(format=LOGFMT, datefmt='%m/%d/%Y %I:%M:%S %p')
 LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel(logging.DEBUG)
+# create console handler and set level to debug
+CH = logging.StreamHandler()
+CH.setLevel(logging.DEBUG)
+# create formatter
+LOGFMT = ('[%(levelname)s:%(name)s:%(lineno)d] %(asctime) (%(thread)d)\n'
+          '>%(message)s')
+FORMATTER = logging.Formatter(LOGFMT, '%m/%d/%Y %I:%M:%S %p')
+# add formatter to ch
+CH.setFormatter(FORMATTER)
+# add ch to logger
+LOGGER.addHandler(CH)
 
 # timezone lookup, force nearest tz for coords outside of polygons
 WHERETZ = tzwhere.tzwhere(shapely=True, forceTZ=True)
