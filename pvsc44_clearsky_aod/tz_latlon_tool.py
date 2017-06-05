@@ -39,7 +39,7 @@ def tz_latlon(lat, lon):
     if tz.dst(tz_date):
         # if DST timedelta is not zero, then it must be southern hemisphere
         tz_date = JUN1  # a standard time in southern hemisphere
-    return tz.utcoffset(tz_date).total_seconds / 3600.0
+    return tz.utcoffset(tz_date).total_seconds() / 3600.0
     # alternate method using ISO8601 string repr of timezone
     #tz_str = tz.localize(tz_date).strftime('%z')  # output timezone from ISO
     # convert ISO timezone string to float, including partial timezones

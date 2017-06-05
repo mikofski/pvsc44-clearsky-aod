@@ -1,8 +1,8 @@
-station id,station name,latitude,longitude,elevation
-bon,Bondville,40.05,-88.37,213
-tbl,Table Mountain,40.13,-105.24,1689
-dra,Desert Rock,36.62,-116.02,1007
-fpk,Fort Peck,48.31,-105.10,634
-gwn,Goodwin Creek,34.25,-89.87,98
-psu,Penn State,40.72,-77.93,376
-sxf,Sioux Falls,43.73,-96.62,473
+station id,tz,station name,latitude,longitude,elevation
+bon,-6.0,Bondville,40.05,-88.37,213
+tbl,-7.0,Table Mountain,40.13,-105.24,1689
+dra,-8.0,Desert Rock,36.62,-116.02,1007
+fpk,-7.0,Fort Peck,48.31,-105.1,634
+gwn,-6.0,Goodwin Creek,34.25,-89.87,98
+psu,-5.0,Penn State,40.72,-77.93,376
+sxf,-6.0,Sioux Falls,43.73,-96.62,473
