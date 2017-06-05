@@ -87,7 +87,7 @@ IDX_COL = 'year_month_day_hour_min'
 QUEUE = Queue()
 RETRIES = 60
 SLEEP = 15
-MAX_CONN = 5
+MAX_CONN = 4
 if not os.path.exists(SAVEDATAPATH):
     os.mkdir(SAVEDATAPATH)
 
