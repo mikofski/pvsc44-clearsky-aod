@@ -218,7 +218,7 @@ def get_surfrad_data(surfrad_sites=SURFRAD_SITES, savedatapath=SAVEDATAPATH,
 
 def get_surfrad_station_meta(queue=QUEUE):
     stations = {}
-    while queue.empty()
+    while queue.empty():
         meta = QUEUE.get()
         stations[meta[0]] = meta[1]
     return stations
