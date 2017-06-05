@@ -92,7 +92,7 @@ def get_noaa_ftp_conn(noaa_ftp=NOAA_FTP, surfrad_path=SURFRAD_PATH, retry=0):
         if retry < RETRIES:
             time.sleep(SLEEP)
             LOGGER.debug('... retry connection #%d', retry)
-            get_noaa_ftp_conn(retry=retry)
+            noaa_ftp_conn = get_noaa_ftp_conn(retry=retry)
         else:
             raise ftp_err
     noaa_ftp_conn.connect()  # if timedout
