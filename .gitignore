@@ -1,3 +1,7 @@
 .ipynb_checkpoints/
 *.h5
 *.pyc
+surfrad/
+archive/
+*.sublime-project
+*.sublime-workspace
