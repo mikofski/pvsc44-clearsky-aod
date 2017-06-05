@@ -24,7 +24,8 @@ from tzwhere import tzwhere
 sns.set_context('notebook', rc={'figure.figsize': (16, 8)})
 
 # logging
-logging.basicConfig()
+LOGFMT = '[%(levelname)s:%(name)s:%(lineno)d] %(asctime) (%(thread)d)\n>%(message)s'
+logging.basicConfig(format=LOGFMT, datefmt='%m/%d/%Y %I:%M:%S %p')
 LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel(logging.DEBUG)
 
@@ -74,9 +75,9 @@ USE_COLS = [
 NA = '-9999.9'
 IDX_COL = 'year_month_day_hour_min'
 QUEUE = Queue()
-RETRIES = 15
-SLEEP = 60
-MAX_CONN = 10
+RETRIES = 60
+SLEEP = 15
+MAX_CONN = 3
 if not os.path.exists(SAVEDATAPATH):
     os.mkdir(SAVEDATAPATH)
 
@@ -86,6 +87,7 @@ def get_noaa_ftp_conn(noaa_ftp=NOAA_FTP, surfrad_path=SURFRAD_PATH, retry=0):
     Get a NOAA FTP connection to the main SURFRAD folder.
     """
     while threading.active_count() > MAX_CONN:
+        LOGGER.debug('number of active threads exceeds max connections.')
         time.sleep(SLEEP)
     try:
         noaa_ftp_conn = FTP(noaa_ftp)  # connection
@@ -180,7 +182,6 @@ def get_surfrad_site_year(surfrad_site, year, h5f_path, queue=QUEUE):
 def get_surfrad_data(surfrad_sites=SURFRAD_SITES, savedatapath=SAVEDATAPATH,
                      ecmwf_macc_range=(ECMWF_MACC_START, ECMWF_MACC_STOP)):
     # loop over sites
-    stations = {}
     threads = []
     noaa_ftp_conn = get_noaa_ftp_conn()
     for surfrad_site, station_id in surfrad_sites.iteritems():
@@ -188,6 +189,7 @@ def get_surfrad_data(surfrad_sites=SURFRAD_SITES, savedatapath=SAVEDATAPATH,
         years = []  # get list of available years
         noaa_ftp_conn.retrlines('NLST', lambda _: years.append(_))
         # loop over yearly site data
+        connections = []
         for y in years:
             # skip any non-year items in the folder
             try:
@@ -203,13 +205,23 @@ def get_surfrad_data(surfrad_sites=SURFRAD_SITES, savedatapath=SAVEDATAPATH,
                 t = threading.Thread(target=get_surfrad_site_year,
                            args=(surfrad_site, year, h5f_path))
                 t.start()
-                threads.append(t)
+                connections.insert(0, t)
+            if len(connections) > MAX_CONN:
+                LOGGER.debug('number of active threads exceeds max connections.')
+                conn = connections.pop()
+                threads.append(conn)
+                conn.join()
         noaa_ftp_conn.cwd('..')  # navigate back to sites
-    for t in threads:
-        t.join()
+    noaa_ftp_conn.close()
+    return threads
+
+
+def get_surfrad_station_meta(queue=QUEUE):
+    stations = {}
+    while queue.empty()
         meta = QUEUE.get()
         stations[meta[0]] = meta[1]
-    noaa_ftp_conn.close()
+    return stations
 
 
 def tz_latlon(lat, lon):
