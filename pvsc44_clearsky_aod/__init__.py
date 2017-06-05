@@ -87,7 +87,7 @@ IDX_COL = 'year_month_day_hour_min'
 QUEUE = Queue()
 RETRIES = 60
 SLEEP = 15
-MAX_CONN = 4
+MAX_CONN = 5
 if not os.path.exists(SAVEDATAPATH):
     os.mkdir(SAVEDATAPATH)
 
@@ -219,7 +219,7 @@ def get_surfrad_data(surfrad_sites=SURFRAD_SITES, savedatapath=SAVEDATAPATH,
                 t = threads.pop()
                 LOGGER.debug('join "%s".', t.name)
                 t.join()
-                ctr = ctr % 3
+                ctr = ctr % MAX_CONN  # set to next available connection
     for conn in connections:
         conn.close()
 
