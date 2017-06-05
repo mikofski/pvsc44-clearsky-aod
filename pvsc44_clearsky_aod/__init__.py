@@ -9,7 +9,7 @@ import logging
 import os
 from StringIO import StringIO
 import time
-from threading import Thread
+import threading
 from Queue import Queue
 
 import h5py
@@ -76,6 +76,7 @@ IDX_COL = 'year_month_day_hour_min'
 QUEUE = Queue()
 RETRIES = 15
 SLEEP = 60
+MAX_CONN = 10
 if not os.path.exists(SAVEDATAPATH):
     os.mkdir(SAVEDATAPATH)
 
@@ -84,6 +85,8 @@ def get_noaa_ftp_conn(noaa_ftp=NOAA_FTP, surfrad_path=SURFRAD_PATH, retry=0):
     """
     Get a NOAA FTP connection to the main SURFRAD folder.
     """
+    while threading.active_count() > MAX_CONN:
+        time.sleep(SLEEP)
     try:
         noaa_ftp_conn = FTP(noaa_ftp)  # connection
     except Exception as ftp_err:
@@ -197,7 +200,7 @@ def get_surfrad_data(surfrad_sites=SURFRAD_SITES, savedatapath=SAVEDATAPATH,
                 continue
             # limit to data overlapping ECMWF atmospheric data (for now)
             if ecmwf_macc_range[0] <= year <= ecmwf_macc_range[1]:
-                t = Thread(target=get_surfrad_site_year,
+                t = threading.Thread(target=get_surfrad_site_year,
                            args=(surfrad_site, year, h5f_path))
                 t.start()
                 threads.append(t)
