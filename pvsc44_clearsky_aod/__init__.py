@@ -86,9 +86,6 @@ def get_noaa_ftp_conn(noaa_ftp=NOAA_FTP, surfrad_path=SURFRAD_PATH, retry=0):
     """
     Get a NOAA FTP connection to the main SURFRAD folder.
     """
-    while threading.active_count() > MAX_CONN:
-        LOGGER.debug('number of active threads exceeds max connections.')
-        time.sleep(SLEEP)
     try:
         noaa_ftp_conn = FTP(noaa_ftp)  # connection
     except Exception as ftp_err:
