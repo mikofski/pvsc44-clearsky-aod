@@ -19,6 +19,7 @@
 # imports and settings
 import os
 
+import h5py
 from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
@@ -28,9 +29,10 @@ import statsmodels.api as sm
 
 from pvsc44_clearsky_aod import ecmwf_macc_tools
 
-get_ipython().magic(u'matplotlib notebook')
+get_ipython().magic(u'matplotlib inline')
 
-sns.set_context('notebook', rc={'figure.figsize': (16, 8)})
+sns.set_context('notebook', rc={'figure.figsize': (8, 6)})
+sns.set(font_scale=1.5)
 
 
 # ## Data
@@ -62,7 +64,7 @@ METADATA = pd.read_csv('metadata.csv', index_col=0)
 # In[3]:
 
 # get SURFRAD data
-station_id = 'tbl'  # choose a station ID from the metadata list
+station_id = 'bon'  # choose a station ID from the metadata list
 
 # CONSTANTS
 DATADIR = 'surfrad'  # folder where SURFRAD data is stored relative to this file
@@ -90,14 +92,14 @@ DATA = DATA.tz_localize('UTC')  # set timezone to UTC
 # In[4]:
 
 # plot some temperatures
-DATA['ta']['2006-07-16':'2006-07-17'].tz_convert(METADATA['tz'][station_id]).plot()
+DATA['ta']['2006-07-16T00:00:00':'2006-07-16T23:59:59'].tz_convert(METADATA['tz'][station_id]).plot()
 plt.ylabel('ambient temperature $[\degree C]$')
 
 
 # In[5]:
 
 # plot some irradiance
-DATA[['dni', 'dhi', 'ghi']]['2006-07-16':'2006-07-17'].tz_convert(METADATA['tz'][station_id]).plot()
+DATA[['dni', 'dhi', 'ghi']]['2006-07-16T00:00:00':'2006-07-16T23:59:59'].tz_convert(METADATA['tz'][station_id]).plot()
 plt.ylabel('irradiance $[W/m^2]$')
 
 
@@ -124,10 +126,11 @@ STATION_ATM = pd.DataFrame(
 # In[7]:
 
 # plot some of the atmospheric data
-atm_data = STATION_ATM[['tau380', 'tau500', 'aod550', 'tau700', 'aod1240']]['2006-07-16':'2006-07-17']
-atm_data.tz_convert(METADATA['tz'][station_id]).plot()
+atm_data = STATION_ATM[['tau380', 'tau500', 'aod550', 'tau700', 'aod1240']]['2006-07-13':'2006-07-17']
+atm_data['2006-07-16T00:00:00':'2006-07-16T23:59:59'].tz_convert(METADATA['tz'][station_id]).plot()
 plt.title('Atmospheric Data')
 plt.ylabel('aerosol optical depth')
+plt.savefig('%s_AOD_2006-07-16.png' % station_id)
 
 
 # ### Solar Position, Airmass and Precipitable Water
@@ -159,14 +162,14 @@ SOLPOS.insert(9, 'etr', ETR)
 # In[9]:
 
 # plot solar position for a day
-SOLPOS[['zenith', 'apparent_zenith', 'azimuth']]['2006-07-16':'2006-07-17'].tz_convert(METADATA['tz'][station_id]).plot()
+SOLPOS[['apparent_zenith', 'azimuth']]['2006-07-16T00:00:00':'2006-07-16T23:59:59'].tz_convert(METADATA['tz'][station_id]).plot()
 plt.ylabel('solar position $[\deg]$')
 
 
 # In[10]:
 
 # compare calculated solar position to SURFRAD
-(DATA['solzen'] / SOLPOS['apparent_zenith'] - 1)['2006-07-16':'2006-07-17'].tz_convert(METADATA['tz'][station_id]).plot()
+(DATA['solzen'] / SOLPOS['apparent_zenith'] - 1)['2006-07-16T00:00:00':'2006-07-16T23:59:59'].tz_convert(METADATA['tz'][station_id]).plot()
 
 
 # In[11]:
@@ -193,7 +196,7 @@ atm_params['tcwv'].fillna(method='pad', inplace=True)
 # Then rollup daily averages to make long term trends easier to see.
 pwat = pd.concat([atm_params['pwat'], atm_params['pwat_calc']], axis=1).resample('D').mean()
 pwat['2006-01-01':'2006-12-31'].tz_convert(METADATA['tz'][station_id]).plot()
-plt.title('Comparison of measured and calculated daily atmospheric water vapor for 2006.')
+plt.title('Comparison of measured and calculated $P_{wat}$.')
 plt.ylabel('Precipitable Water [cm]')
 plt.legend(['Measured', 'Calculated'])
 
@@ -242,19 +245,21 @@ atm_params['lt'].fillna(method='pad', inplace=True)
 
 # compare Bird & Hulstrom approximated broadband AOD to AOD at 700-nm
 # downsample to monthly intervals to show long term trend for entire range of ECMWF-MACC data
-aod_bb = atm_params[['tau700', 'aod_calc']].resample('M').mean()
-aod_bb.tz_convert(METADATA['tz'][station_id]).plot()
+aod_bb = atm_params[['tau700', 'aod_calc']].resample('D').mean()
+aod_bb['2006-01-01':'2006-12-31'].tz_convert(METADATA['tz'][station_id]).plot()
 plt.ylabel('broadband AOD')
-plt.title('Comparison of calculated and measured broadband aerosol optical depth')
+plt.title('Comparison of calculated and measured broadband AOD')
 
 
 # In[16]:
 
 # compare historic Linke turbidity to calculated
 # downsample to monthly averages to show long term trends
-atm_params[['lt', 'lt_calc', 'lt_aod_calc']].resample('M').mean().tz_convert(METADATA['tz'][station_id]).plot()
+lt = atm_params[['lt', 'lt_calc', 'lt_aod_calc']].resample('D').mean()
+lt['2006-01-01':'2006-12-31'].tz_convert(METADATA['tz'][station_id]).plot()
 plt.ylabel('Linke turbidity')
 plt.title('Comparison of measured and historical Linke turbidity')
+plt.savefig('%s_Linke_turbidity_2006.png' % station_id)
 
 
 # In[17]:
@@ -274,10 +279,11 @@ results.summary()  # output summary
 # plot yearly relative difference versus trendline
 plt.plot(lt_diff)
 plt.plot(lt_diff.index, results.fittedvalues)
-plt.title('Yearly Atmospheric Trend')
+plt.title('Yearly atmospheric trend between calculated and historic Linke turbidity')
 plt.legend(['yearly relative differnce', 'trendline'])
-plt.ylabel('relative difference between calculated and historic Linke turbidity')
+plt.ylabel('relative difference')
 plt.xlabel('years')
+plt.savefig('%s_Linke_turbidity_trend.png' % station_id)
 
 
 # ### Clear sky models
@@ -323,10 +329,11 @@ LEGEND = ['Ineichen-Linke', 'Ineichen-ECMWF-MACC', 'Ineichen-Bird-Hulstrom', 'SO
 pd.concat([
     INEICHEN_LT['dni'], INEICHEN_CALC['dni'], INEICHEN_AOD_CALC['dni'],
     SOLIS['dni'], BIRD['dni'], atm_params['dni']
-], axis=1)['2006-07-13':'2006-07-17'].resample('H').mean().tz_convert(METADATA['tz'][station_id]).plot()
-plt.legend(LEGEND, loc=2)
+], axis=1)['2006-07-16T00:00:00':'2006-07-16T23:59:59'].resample('H').mean().tz_convert(METADATA['tz'][station_id]).plot()
+plt.legend(LEGEND)
 plt.title('Comparison of clear sky irradiance at %s 2003-2012' % METADATA['station name'][station_id])
 plt.ylabel('$DNI [W/m^2]$')
+plt.savefig('%s_DNI_2006-07-16.png' % station_id)
 
 
 # In[21]:
@@ -335,10 +342,11 @@ plt.ylabel('$DNI [W/m^2]$')
 pd.concat([
     INEICHEN_LT['dhi'], INEICHEN_CALC['dhi'], INEICHEN_AOD_CALC['dhi'],
     SOLIS['dhi'], BIRD['dhi'], atm_params['dhi']
-], axis=1)['2006-07-13':'2006-07-17'].resample('H').mean().tz_convert(METADATA['tz'][station_id]).plot()
-plt.legend(LEGEND, loc=2)
+], axis=1)['2006-07-16T00:00:00':'2006-07-16T23:59:59'].resample('H').mean().tz_convert(METADATA['tz'][station_id]).plot()
+plt.legend(LEGEND)
 plt.title('Comparison of clear sky irradiance at %s 2003-2012' % METADATA['station name'][station_id])
 plt.ylabel('$DHI [W/m^2]$')
+plt.savefig('%s_DHI_2006-07-16.png' % station_id)
 
 
 # In[22]:
@@ -347,15 +355,355 @@ plt.ylabel('$DHI [W/m^2]$')
 pd.concat([
     INEICHEN_LT['ghi'], INEICHEN_CALC['ghi'], INEICHEN_AOD_CALC['ghi'],
     SOLIS['ghi'], BIRD['ghi'], atm_params['ghi']
-], axis=1)['2006-07-13':'2006-07-17'].resample('H').mean().tz_convert(METADATA['tz'][station_id]).plot()
-plt.legend(LEGEND, loc=2)
+], axis=1)['2006-07-16T00:00:00':'2006-07-16T23:59:59'].resample('H').mean().tz_convert(METADATA['tz'][station_id]).plot()
+plt.legend(LEGEND)
 plt.title('Comparison of clear sky irradiance at %s 2003-2012' % METADATA['station name'][station_id])
 plt.ylabel('$GHI [W/m^2]$')
+plt.savefig('%s_GHI_2006-07-16.png' % station_id)
 
 
-# In[ ]:
+# In[23]:
+
+# add clear sky calc to atmospheric parameters
+atm_params.insert(29, 'solis_dhi', SOLIS['dhi'])
+atm_params.insert(30, 'solis_dni', SOLIS['dni'])
+atm_params.insert(31, 'solis_ghi', SOLIS['ghi'])
+atm_params.insert(32, 'lt_dhi', INEICHEN_LT['dhi'])
+atm_params.insert(33, 'lt_dni', INEICHEN_LT['dni'])
+atm_params.insert(34, 'lt_ghi', INEICHEN_LT['ghi'])
+atm_params.insert(35, 'macc_dhi', INEICHEN_CALC['dhi'])
+atm_params.insert(36, 'macc_dni', INEICHEN_CALC['dni'])
+atm_params.insert(37, 'macc_ghi', INEICHEN_CALC['ghi'])
+atm_params.insert(38, 'bird_dhi', BIRD['dhi'])
+atm_params.insert(39, 'bird_dni', BIRD['dni'])
+atm_params.insert(40, 'bird_ghi', BIRD['ghi'])
+
+# make even intervals at 1-minute and 3-minutes
+atm_params_3min = atm_params.resample('3T').mean() # down using averages
+atm_params_1min = atm_params.resample('T').pad() # up padding previous value
+
+# add columns for year and month for pivot and groupby plots
+atm_params_3min.insert(0, 'month', atm_params_3min.index.month)
+atm_params_3min.insert(0, 'year', atm_params_3min.index.year)
 
 
+# ## Detect Clear Sky
+# To compare the different models and the effects of historical versus measured atmospheric data, filter out any timestamps with clouds and low irradiance using `pvlib.clearsky.detect_clearsky()`.
+
+# In[24]:
+
+# detect clear sky indices
+
+# 1-minute data with 10-minute window
+is_clear_1min = pvlib.clearsky.detect_clearsky(atm_params_1min['ghi'], atm_params_1min['solis_ghi'], atm_params_1min.index, 10)
+# 3-minute data with 30 minute window
+is_clear_3min = pvlib.clearsky.detect_clearsky(atm_params_3min['ghi'], atm_params_3min['solis_ghi'], atm_params_3min.index, 10)
+
+# filter out low light
+is_bright = atm_params_3min['ghi'] > 200
+
+
+# ## Figures
+# For a given site lets compare all models annual mean bias error (MBE) and root-mean-square (RMS). Then lets copmare all models MBE and RMS for years by month to see if there are any seasonal biases.
+
+# In[25]:
+
+# plot mean bias error of annual DNI
+((atm_params_3min['solis_dni'] / atm_params_3min['dni'])[is_clear_3min & is_bright] - 1).resample('A').mean().plot()
+((atm_params_3min['lt_dni'] / atm_params_3min['dni'])[is_clear_3min & is_bright] - 1).resample('A').mean().plot()
+((atm_params_3min['macc_dni'] / atm_params_3min['dni'])[is_clear_3min & is_bright] - 1).resample('A').mean().plot()
+((atm_params_3min['bird_dni'] / atm_params_3min['dni'])[is_clear_3min & is_bright] - 1).resample('A').mean().plot()
+plt.legend(['solis', 'linke', 'macc', 'bird'])
+plt.title('Mean Bias Error (MBE) of DNI at %s' % METADATA['station name'][station_id])
+plt.ylabel('average relative difference (arb. units)')
+plt.savefig('%s_annual_dni_mbe.png' % station_id)
+
+
+# In[26]:
+
+# plot root mean square of annual DNI
+np.sqrt((((atm_params_3min['solis_dni'] / atm_params_3min['dni'])[is_clear_3min & is_bright] - 1)**2).resample('A').mean()).plot()
+np.sqrt((((atm_params_3min['lt_dni'] / atm_params_3min['dni'])[is_clear_3min & is_bright] - 1)**2).resample('A').mean()).plot()
+np.sqrt((((atm_params_3min['macc_dni'] / atm_params_3min['dni'])[is_clear_3min & is_bright] - 1)**2).resample('A').mean()).plot()
+np.sqrt((((atm_params_3min['bird_dni'] / atm_params_3min['dni'])[is_clear_3min & is_bright] - 1)**2).resample('A').mean()).plot()
+plt.legend(['solis', 'linke', 'macc', 'bird'])
+plt.title('Root Mean Square (RMS) of DNI at %s' % METADATA['station name'][station_id])
+plt.ylabel('relative RMS (arb. units)')
+plt.savefig('%s_annual_dni_rms.png' % station_id)
+
+
+# In[27]:
+
+# plot mean bias error of annual DHI
+((atm_params_3min['solis_dhi'] / atm_params_3min['dhi'])[is_clear_3min & is_bright] - 1).resample('A').mean().plot()
+((atm_params_3min['lt_dhi'] / atm_params_3min['dhi'])[is_clear_3min & is_bright] - 1).resample('A').mean().plot()
+((atm_params_3min['macc_dhi'] / atm_params_3min['dhi'])[is_clear_3min & is_bright] - 1).resample('A').mean().plot()
+((atm_params_3min['bird_dhi'] / atm_params_3min['dhi'])[is_clear_3min & is_bright] - 1).resample('A').mean().plot()
+plt.legend(['solis', 'linke', 'macc', 'bird'])
+plt.title('Mean Bias Error (MBE) of DHI at %s' % METADATA['station name'][station_id])
+plt.ylabel('average relative difference (arb. units)')
+plt.savefig('%s_annual_dhi_mbe.png' % station_id)
+
+
+# In[28]:
+
+# plot root mean square of annual DHI
+np.sqrt((((atm_params_3min['solis_dhi'] / atm_params_3min['dhi'])[is_clear_3min & is_bright] - 1)**2).resample('A').mean()).plot()
+np.sqrt((((atm_params_3min['lt_dhi'] / atm_params_3min['dhi'])[is_clear_3min & is_bright] - 1)**2).resample('A').mean()).plot()
+np.sqrt((((atm_params_3min['macc_dhi'] / atm_params_3min['dhi'])[is_clear_3min & is_bright] - 1)**2).resample('A').mean()).plot()
+np.sqrt((((atm_params_3min['bird_dhi'] / atm_params_3min['dhi'])[is_clear_3min & is_bright] - 1)**2).resample('A').mean()).plot()
+plt.legend(['solis', 'linke', 'macc', 'bird'])
+plt.title('Root Mean Square (RMS) of DHI at %s' % METADATA['station name'][station_id])
+plt.ylabel('relative RMS (arb. units)')
+plt.savefig('%s_annual_dhi_rms.png' % station_id)
+
+
+# In[29]:
+
+# plot mean bias error of annual GHI
+((atm_params_3min['solis_ghi'] / atm_params_3min['ghi'])[is_clear_3min & is_bright] - 1).resample('A').mean().plot()
+((atm_params_3min['lt_ghi'] / atm_params_3min['ghi'])[is_clear_3min & is_bright] - 1).resample('A').mean().plot()
+((atm_params_3min['macc_ghi'] / atm_params_3min['ghi'])[is_clear_3min & is_bright] - 1).resample('A').mean().plot()
+((atm_params_3min['bird_ghi'] / atm_params_3min['ghi'])[is_clear_3min & is_bright] - 1).resample('A').mean().plot()
+plt.legend(['solis', 'linke', 'macc', 'bird'])
+plt.title('Mean Bias Error (MBE) of GHI at %s' % METADATA['station name'][station_id])
+plt.ylabel('average relative difference (arb. units)')
+plt.savefig('%s_annual_ghi_mbe.png' % station_id)
+
+
+# In[30]:
+
+# plot root mean square of annual GHI
+np.sqrt((((atm_params_3min['solis_ghi'] / atm_params_3min['ghi'])[is_clear_3min & is_bright] - 1)**2).resample('A').mean()).plot()
+np.sqrt((((atm_params_3min['lt_ghi'] / atm_params_3min['ghi'])[is_clear_3min & is_bright] - 1)**2).resample('A').mean()).plot()
+np.sqrt((((atm_params_3min['macc_ghi'] / atm_params_3min['ghi'])[is_clear_3min & is_bright] - 1)**2).resample('A').mean()).plot()
+np.sqrt((((atm_params_3min['bird_ghi'] / atm_params_3min['ghi'])[is_clear_3min & is_bright] - 1)**2).resample('A').mean()).plot()
+plt.legend(['solis', 'linke', 'macc', 'bird'])
+plt.title('Root Mean Square (RMS) of GHI at %s' % METADATA['station name'][station_id])
+plt.ylabel('relative RMS (arb. units)')
+plt.savefig('%s_annual_ghi_rms.png' % station_id)
+
+
+# In[31]:
+
+# plot MBE by month
+((atm_params_3min['solis_ghi'] / atm_params_3min['ghi'])[is_clear_3min & is_bright] - 1).groupby(lambda x: x.month).mean().plot()
+((atm_params_3min['lt_ghi'] / atm_params_3min['ghi'])[is_clear_3min & is_bright] - 1).groupby(lambda x: x.month).mean().plot()
+((atm_params_3min['macc_ghi'] / atm_params_3min['ghi'])[is_clear_3min & is_bright] - 1).groupby(lambda x: x.month).mean().plot()
+((atm_params_3min['bird_ghi'] / atm_params_3min['ghi'])[is_clear_3min & is_bright] - 1).groupby(lambda x: x.month).mean().plot()
+plt.legend(['solis', 'linke', 'macc', 'bird'])
+plt.title('Mean Bias Error (MBE) of GHI by month at %s' % METADATA['station name'][station_id])
+plt.ylabel('average relative difference (arb. units)')
+plt.savefig('%s_ghi_mbe_by_month.png' % station_id)
+
+
+# In[32]:
+
+# plot RMS by month
+np.sqrt((((atm_params_3min['solis_ghi'] / atm_params_3min['ghi'])[is_clear_3min & is_bright] - 1)**2).groupby(lambda x: x.month).mean()).plot()
+np.sqrt((((atm_params_3min['lt_ghi'] / atm_params_3min['ghi'])[is_clear_3min & is_bright] - 1)**2).groupby(lambda x: x.month).mean()).plot()
+np.sqrt((((atm_params_3min['macc_ghi'] / atm_params_3min['ghi'])[is_clear_3min & is_bright] - 1)**2).groupby(lambda x: x.month).mean()).plot()
+np.sqrt((((atm_params_3min['bird_ghi'] / atm_params_3min['ghi'])[is_clear_3min & is_bright] - 1)**2).groupby(lambda x: x.month).mean()).plot()
+plt.legend(['solis', 'linke', 'macc', 'bird'])
+plt.title('Root Mean Square (RMS) of GHI by month at %s' % METADATA['station name'][station_id])
+plt.ylabel('relative RMS (arb. units)')
+plt.savefig('%s_ghi_rms_by_month.png' % station_id)
+
+
+# In[33]:
+
+# plot MBE by month
+((atm_params_3min['solis_dhi'] / atm_params_3min['dhi'])[is_clear_3min & is_bright] - 1).groupby(lambda x: x.month).mean().plot()
+((atm_params_3min['lt_dhi'] / atm_params_3min['dhi'])[is_clear_3min & is_bright] - 1).groupby(lambda x: x.month).mean().plot()
+((atm_params_3min['macc_dhi'] / atm_params_3min['dhi'])[is_clear_3min & is_bright] - 1).groupby(lambda x: x.month).mean().plot()
+((atm_params_3min['bird_dhi'] / atm_params_3min['dhi'])[is_clear_3min & is_bright] - 1).groupby(lambda x: x.month).mean().plot()
+plt.legend(['solis', 'linke', 'macc', 'bird'])
+plt.title('Mean Bias Error (MBE) of DHI by month at %s' % METADATA['station name'][station_id])
+plt.ylabel('average relative difference (arb. units)')
+plt.savefig('%s_dhi_mbe_by_month.png' % station_id)
+
+
+# In[34]:
+
+# plot RMS by month
+np.sqrt((((atm_params_3min['solis_dhi'] / atm_params_3min['dhi'])[is_clear_3min & is_bright] - 1)**2).groupby(lambda x: x.month).mean()).plot()
+np.sqrt((((atm_params_3min['lt_dhi'] / atm_params_3min['dhi'])[is_clear_3min & is_bright] - 1)**2).groupby(lambda x: x.month).mean()).plot()
+np.sqrt((((atm_params_3min['macc_dhi'] / atm_params_3min['dhi'])[is_clear_3min & is_bright] - 1)**2).groupby(lambda x: x.month).mean()).plot()
+np.sqrt((((atm_params_3min['bird_dhi'] / atm_params_3min['dhi'])[is_clear_3min & is_bright] - 1)**2).groupby(lambda x: x.month).mean()).plot()
+plt.legend(['solis', 'linke', 'macc', 'bird'])
+plt.title('Root Mean Square (RMS) of DHI by month at %s' % METADATA['station name'][station_id])
+plt.ylabel('relative RMS (arb. units)')
+plt.savefig('%s_dhi_rms_by_month.png' % station_id)
+
+
+# In[35]:
+
+# plot MBE by month
+((atm_params_3min['solis_dni'] / atm_params_3min['dni'])[is_clear_3min & is_bright] - 1).groupby(lambda x: x.month).mean().plot()
+((atm_params_3min['lt_dni'] / atm_params_3min['dni'])[is_clear_3min & is_bright] - 1).groupby(lambda x: x.month).mean().plot()
+((atm_params_3min['macc_dni'] / atm_params_3min['dni'])[is_clear_3min & is_bright] - 1).groupby(lambda x: x.month).mean().plot()
+((atm_params_3min['bird_dni'] / atm_params_3min['dni'])[is_clear_3min & is_bright] - 1).groupby(lambda x: x.month).mean().plot()
+plt.legend(['solis', 'linke', 'macc', 'bird'])
+plt.title('Mean Bias Error (MBE) of DNI by month at %s' % METADATA['station name'][station_id])
+plt.ylabel('average relative difference (arb. units)')
+plt.savefig('%s_dni_mbe_by_month.png' % station_id)
+
+
+# In[36]:
+
+# plot RMS by month
+np.sqrt((((atm_params_3min['solis_dni'] / atm_params_3min['dni'])[is_clear_3min & is_bright] - 1)**2).groupby(lambda x: x.month).mean()).plot()
+np.sqrt((((atm_params_3min['lt_dni'] / atm_params_3min['dni'])[is_clear_3min & is_bright] - 1)**2).groupby(lambda x: x.month).mean()).plot()
+np.sqrt((((atm_params_3min['macc_dni'] / atm_params_3min['dni'])[is_clear_3min & is_bright] - 1)**2).groupby(lambda x: x.month).mean()).plot()
+np.sqrt((((atm_params_3min['bird_dni'] / atm_params_3min['dni'])[is_clear_3min & is_bright] - 1)**2).groupby(lambda x: x.month).mean()).plot()
+plt.legend(['solis', 'linke', 'macc', 'bird'])
+plt.title('Root Mean Square (RMS) of DNI by month at %s' % METADATA['station name'][station_id])
+plt.ylabel('relative RMS (arb. units)')
+plt.savefig('%s_dni_rms_by_month.png' % station_id)
+
+
+# In[37]:
+
+# combine all years on one chart for SOLIS GHI
+x = atm_params_3min.loc[is_clear_3min & is_bright].resample('M').mean().pivot(index='month', columns='year', values='ghi')
+y = atm_params_3min.loc[is_clear_3min & is_bright].resample('M').mean().pivot(index='month', columns='year', values='solis_ghi')
+(y / x - 1).plot()
+plt.title('GHI MBE by month for SOLIS')
+plt.savefig('%s_solis_ghi_rms_by_month_all_years.png' % station_id)
+
+
+# In[38]:
+
+# combine all years on one chart for SOLIS DHI
+x = atm_params_3min.loc[is_clear_3min & is_bright].resample('M').mean().pivot(index='month', columns='year', values='dhi')
+y = atm_params_3min.loc[is_clear_3min & is_bright].resample('M').mean().pivot(index='month', columns='year', values='solis_dhi')
+(y / x - 1).plot()
+plt.title('DHI MBE by month for SOLIS')
+plt.savefig('%s_solis_dhi_rms_by_month_all_years.png' % station_id)
+
+
+# In[39]:
+
+# combine all years on one chart for SOLIS DNI
+x = atm_params_3min.loc[is_clear_3min & is_bright].resample('M').mean().pivot(index='month', columns='year', values='dni')
+y = atm_params_3min.loc[is_clear_3min & is_bright].resample('M').mean().pivot(index='month', columns='year', values='solis_dni')
+(y / x - 1).plot()
+plt.title('DNI MBE by month for SOLIS')
+plt.savefig('%s_solis_dni_rms_by_month_all_years.png' % station_id)
+
+
+# In[40]:
+
+# combine all years on one chart for Linke turbidity GHI
+x = atm_params_3min.loc[is_clear_3min & is_bright].resample('M').mean().pivot(index='month', columns='year', values='ghi')
+y = atm_params_3min.loc[is_clear_3min & is_bright].resample('M').mean().pivot(index='month', columns='year', values='lt_ghi')
+(y / x - 1).plot()
+plt.title('GHI MBE by month for Linke turbidity')
+plt.savefig('%s_linke_ghi_rms_by_month_all_years.png' % station_id)
+
+
+# In[41]:
+
+# combine all years on one chart for Linke turbidity DHI
+x = atm_params_3min.loc[is_clear_3min & is_bright].resample('M').mean().pivot(index='month', columns='year', values='dhi')
+y = atm_params_3min.loc[is_clear_3min & is_bright].resample('M').mean().pivot(index='month', columns='year', values='lt_dhi')
+(y / x - 1).plot()
+plt.title('DHI MBE by month for Linke turbidity')
+plt.savefig('%s_linke_dhi_rms_by_month_all_years.png' % station_id)
+
+
+# In[42]:
+
+# combine all years on one chart for Linke turbidity DNI
+x = atm_params_3min.loc[is_clear_3min & is_bright].resample('M').mean().pivot(index='month', columns='year', values='dni')
+y = atm_params_3min.loc[is_clear_3min & is_bright].resample('M').mean().pivot(index='month', columns='year', values='lt_dni')
+(y / x - 1).plot()
+plt.title('DNI MBE by month for Linke turbidity')
+plt.savefig('%s_linke_dni_rms_by_month_all_years.png' % station_id)
+
+
+# In[43]:
+
+# combine all years on one chart for ECMWF-MACC GHI
+x = atm_params_3min.loc[is_clear_3min & is_bright].resample('M').mean().pivot(index='month', columns='year', values='ghi')
+y = atm_params_3min.loc[is_clear_3min & is_bright].resample('M').mean().pivot(index='month', columns='year', values='macc_ghi')
+(y / x - 1).plot()
+plt.title('GHI MBE by month for ECMWF-MACC')
+plt.savefig('%s_macc_ghi_rms_by_month_all_years.png' % station_id)
+
+
+# In[44]:
+
+# combine all years on one chart for ECMWF-MACC DHI
+x = atm_params_3min.loc[is_clear_3min & is_bright].resample('M').mean().pivot(index='month', columns='year', values='dhi')
+y = atm_params_3min.loc[is_clear_3min & is_bright].resample('M').mean().pivot(index='month', columns='year', values='macc_dhi')
+(y / x - 1).plot()
+plt.title('DHI MBE by month for ECMWF-MACC')
+plt.savefig('%s_macc_dhi_rms_by_month_all_years.png' % station_id)
+
+
+# In[45]:
+
+# combine all years on one chart for ECMWF-MACC DNI
+x = atm_params_3min.loc[is_clear_3min & is_bright].resample('M').mean().pivot(index='month', columns='year', values='dni')
+y = atm_params_3min.loc[is_clear_3min & is_bright].resample('M').mean().pivot(index='month', columns='year', values='macc_dni')
+(y / x - 1).plot()
+plt.title('DNI MBE by month for ECMWF-MACC')
+plt.savefig('%s_macc_dni_rms_by_month_all_years.png' % station_id)
+
+
+# In[46]:
+
+# combine all years on one chart for Bird GHI
+x = atm_params_3min.loc[is_clear_3min & is_bright].resample('M').mean().pivot(index='month', columns='year', values='ghi')
+y = atm_params_3min.loc[is_clear_3min & is_bright].resample('M').mean().pivot(index='month', columns='year', values='bird_ghi')
+(y / x - 1).plot()
+plt.title('GHI MBE by month for Bird')
+plt.savefig('%s_bird_ghi_rms_by_month_all_years.png' % station_id)
+
+
+# In[47]:
+
+# combine all years on one chart for Bird DHI
+x = atm_params_3min.loc[is_clear_3min & is_bright].resample('M').mean().pivot(index='month', columns='year', values='dhi')
+y = atm_params_3min.loc[is_clear_3min & is_bright].resample('M').mean().pivot(index='month', columns='year', values='bird_dhi')
+(y / x - 1).plot()
+plt.title('DHI MBE by month for Bird')
+plt.savefig('%s_bird_dhi_rms_by_month_all_years.png' % station_id)
+
+
+# In[48]:
+
+# combine all years on one chart for Bird DNI
+x = atm_params_3min.loc[is_clear_3min & is_bright].resample('M').mean().pivot(index='month', columns='year', values='dni')
+y = atm_params_3min.loc[is_clear_3min & is_bright].resample('M').mean().pivot(index='month', columns='year', values='bird_dni')
+(y / x - 1).plot()
+plt.title('DNI MBE by month for Bird')
+plt.savefig('%s_bird_dni_rms_by_month_all_years.png' % station_id)
+
+
+# In[49]:
+
+# save data
+np_atm_params_3min_clear = atm_params_3min.loc[is_clear_3min].to_records()
+np_atm_params_3min_clear.index = np.array([dt.isoformat() for dt in np_atm_params_3min_clear.index.tolist()], dtype=str)
+np_atm_params_3min_clear = np_atm_params_3min_clear.astype(np.dtype(
+    [('index', str, 25)]
+    + [(str(n), dt) for n, dt in np_atm_params_3min_clear.dtype.descr if n != 'index']
+))
+with h5py.File('%s_3min_clear_atm_params.h5' % station_id, 'w') as f:
+    f['data'] = np_atm_params_3min_clear
+
+
+# In[50]:
+
+# check hdf5 file loads back into pandas
+with h5py.File('%s_3min_clear_atm_params.h5' % station_id, 'r') as f:
+    np_atm_params_3min_clear = pd.DataFrame(np.array(f['data']))
+np_atm_params_3min_clear['index'] = pd.DatetimeIndex(np_atm_params_3min_clear['index'])
+np_atm_params_3min_clear.set_index('index', inplace=True)
+np_atm_params_3min_clear.index.rename('timestamps', inplace=True)
+np_atm_params_3min_clear
 
 
 # ![Creative Commons License](https://i.creativecommons.org/l/by/4.0/88x31.png)
