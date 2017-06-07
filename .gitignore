@@ -5,3 +5,5 @@ surfrad/
 ecmwf-macc/
 *.sublime-project
 *.sublime-workspace
+*.png
+*.csv
