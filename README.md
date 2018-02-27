@@ -5,8 +5,9 @@ Specialists Conference (PVSC) in Washington, D.C. in June, 2017. The calculation
 generated here.
 
 # Quick start
-Probably the fastest way to use these notebooks interactively is to open them in
-[mybinder](https://mybinder.org/v2/gh/mikofski/pvsc44-clearsky-aod/master). You can also view them statically online at GitHub, or if
+One way to use these notebooks interactively is to open them in
+[mybinder](https://mybinder.org/v2/gh/mikofski/pvsc44-clearsky-aod/master), although you won't be able to access the `surfrad.zip`
+file or the ECMWF MACC AOD data because they take up too much space. You can also view them statically online at GitHub, or if
 you have [Git](https://git-scm.com/) and [the requirements](#requirements) then you can [clone](https://git-scm.com/docs/git-clone) this
 repository to your computer, and open it there.
 
