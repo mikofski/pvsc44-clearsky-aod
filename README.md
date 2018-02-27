@@ -45,7 +45,9 @@ measured SURFRAD data.
 This is the third notebook. In it Gregory Kimball looks at the sensitivity to Linke Turbidity.
 
 # [PVSC44 ECMWF AOD Sensitivity](https://github.com/mikofski/pvsc44-clearsky-aod/blob/master/PVSC44%20ECMWF%20AOD%20Sensitivity.ipynb)
-This is the fourth and final notebook. In it we use Greg's analysis of TL sensitivity.
+This is the fourth and final notebook. In it we use Greg's analysis of TL sensitivity, and make the unlikely discovery that the TL and ECMWF MACC AOD data agree when we impose a low light filter:
+
+>So I did that, but in the process I made a funny discovery - the MACC AOD only results in higher $T_L$ if you include low irradiance. But, if you filter out low light conditions, then the MACC AOD calculated $T_L$ actually matches the historical values well.
 
 # License
 All content on this site is covered by a [3-clause BSD license](./LICENSE) and a
