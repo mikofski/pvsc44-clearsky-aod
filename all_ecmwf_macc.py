@@ -12,7 +12,7 @@ logger = logging.getLogger('ecmwf')
 logger.setLevel(logging.DEBUG)
 
 
-def ecmwf(param, target):
+def ecmwf(param, targetname, startdate, stopdate):
     server.retrieve({
         "class": "mc",
         "dataset": "macc",
@@ -26,7 +26,7 @@ def ecmwf(param, target):
         "format": "netcdf",
         "time": "00:00:00",
         "type": "fc",
-        "target": target,
+        "target": targetname,
     })    
 
 
@@ -43,13 +43,13 @@ if __name__ == '__main__':
     for year in xrange(2003, 2013):
         threads = []
         for name, param in params.iteritems():
-            target = "%s_%s_macc.nc" % (name, year)
-            if os.path.exists(target):
+            targetname = "%s_%s_macc.nc" % (name, year)
+            if os.path.exists(targetname):
                  continue
             startdate = datetime(year, 1, 1).strftime('%Y-%m-%d')
             stopdate = datetime(year, 12, 31).strftime('%Y-%m-%d')
-            logger.debug('begin downloading target: %s ...', target)
-            t = threading.Thread(target=ecmwf, name=name, args=(param, target))
+            logger.debug('begin downloading target: %s ...', targetname)
+            t = threading.Thread(target=ecmwf, name=name, args=(param, targetname, startdate, stopdate))
             t.start()
             threads.append(t)
         for t in threads:
